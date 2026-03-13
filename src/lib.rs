@@ -2,18 +2,20 @@ use core::fmt::Display;
 
 use embedded_hal::digital::OutputPin;
 
-// Configure the 7 segments of the display by mapping which GPIO pin is connected to which segment.
-// The letters represent the segment as labelled.
-//       A
-//    _______
-//   |       |
-// F |       | B
-//   |   G   |
-//   |-------|
-//   |       |
-// E |       | C
-//   |_______|  _
-//       D     |_| DP
+/// Configure the 7 segments of the display by mapping which GPIO pin is connected to which segment.
+/// The letters represent the segment as labelled.
+/// ```text
+///       A
+///    _______
+///   |       |
+/// F |       | B
+///   |   G   |
+///   |-------|
+///   |       |
+/// E |       | C
+///   |_______|  _
+///       D     |_| DP
+/// ```
 pub struct SegmentConfiguration<P: OutputPin> {
     pub a: P,
     pub b: P,
@@ -144,8 +146,8 @@ impl<P: OutputPin> SevenSegment<P> {
         Ok(display)
     }
 
-    // Call this method at a high frequency (e.g. every 2ms) to ensure all digits are displayed
-    // correctly. Call it at a low frequency and numbers will display separately.
+    /// Call this method at a high frequency (e.g. every 2ms) to ensure all digits are displayed
+    /// correctly. Call it at a low frequency and numbers will display separately.
     pub fn tick(&mut self) -> Result<(), SegmentError<P>> {
         self.show_digit(self.current_digit)?;
         // Increment the index by 1, wrapping around to 0. This means each time the next index of
@@ -154,8 +156,8 @@ impl<P: OutputPin> SevenSegment<P> {
         Ok(())
     }
 
-    // Set the number to show on the display. This function only stores the value to be shown. The
-    // display needs to be updated at high frequency to show each digit.
+    /// Set the number to show on the display. This function only stores the value to be shown. The
+    /// display needs to be updated at high frequency to show each digit.
     pub fn show(&mut self, number: u16) -> Result<(), SegmentError<P>> {
         if number > 9999 {
             return Err(SegmentError::NumberTooLarge(number));
@@ -496,7 +498,10 @@ mod test {
     fn test_display_float_with_char() {
         // 12.3 with trailing C; digit[0] = C, digits[1-3] = 3/2/1 (shifted), DP at digit[2]
         let mut fixture = DisplayFixture::new();
-        fixture.display.show_flat_with_char(12.3, DisplayChar::C).unwrap();
+        fixture
+            .display
+            .show_flat_with_char(12.3, DisplayChar::C)
+            .unwrap();
 
         fixture.display.tick().unwrap();
         fixture.assert_digit_active(0);
