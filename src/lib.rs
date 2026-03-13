@@ -11,6 +11,7 @@
 //! [SevenSegment] for more instructions.
 //!
 
+#![no_std]
 use core::fmt::Display;
 
 use embedded_hal::digital::OutputPin;
