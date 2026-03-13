@@ -1,3 +1,16 @@
+//! Driver for the 3641AS seven segment display with four digits.
+//!
+//! This module contains the code to display numbers on the 3641AS display. It supports 4-digit
+//! integers, floating point numbers with single precision after the decimal point and can also
+//! display a trailing character after a floating point number.
+//!
+//! The display is constructed using a [SegmentConfiguration] which provides the 8 pins connected
+//! to the 7 segments and the decimal point. It also takes an array of 4 digit pins. The segment
+//! pins are set to high when active while the digit pins are set to low when active. Once you have
+//! created an object, set your desired output and then call [SevenSegment::tick] rapidly. See
+//! [SevenSegment] for more instructions.
+//!
+
 use core::fmt::Display;
 
 use embedded_hal::digital::OutputPin;
@@ -5,17 +18,19 @@ use embedded_hal::digital::OutputPin;
 /// Configure the 7 segments of the display by mapping which GPIO pin is connected to which segment.
 /// The letters represent the segment as labelled.
 /// ```text
-///       A
-///    _______
-///   |       |
-/// F |       | B
-///   |   G   |
-///   |-------|
-///   |       |
-/// E |       | C
-///   |_______|  _
-///       D     |_| DP
+/// ┌────A────┐
+/// │         │
+/// F         B
+/// │         │
+/// ├────G────┤
+/// │         │
+/// E         C
+/// │         │
+/// └────D────┘  ⬤ DP
 /// ```
+///
+/// Fields below are lower-case versions of the segment names above. Segment names correspond to
+/// segment names in the [3641AS datasheet](https://www.xlitx.com/datasheet/3641AS.pdf).
 pub struct SegmentConfiguration<P: OutputPin> {
     pub a: P,
     pub b: P,
@@ -85,6 +100,7 @@ const PATTERNS: [u8; 10] = [
 // Show a single number after the decimal point
 const DECIMAL_LOCATION: u8 = 1;
 
+/// Display a character on the display. Only a limited set of characters are supported.
 #[derive(Copy, Clone)]
 pub enum DisplayChar {
     C,
@@ -107,14 +123,30 @@ enum DisplayNumber {
     FloatWithChar { number: f32, char: DisplayChar },
 }
 
+/// Drive a 3641AS seven segment display from this object.
+///
+/// Create a new instance using [SevenSegment::new]. Then set the desired value to be displayed
+/// using one of the following options:
+///
+/// - [SevenSegment::show] for a 4-digit integer (e.g. `1234`)
+/// - [SevenSegment::show_float] for a floating point number with three leading numbers and one
+///   after the decimal point (e.g. `123.4`)
+/// - [SevenSegment::show_float_with_char] for a floating point number with two leading numbers, one
+///   after the decimal point and a trailing character (e.g. `12.3C`).
+///
+/// Then show this number by rapidly calling [SevenSegment::tick]. Since the display only provides
+/// the ability to show segments for one number at a time, it's necessary to use multiplexing by
+/// rapidly turning showing each digit, one at a time. At a high enough frequency this means the
+/// human eye can't perceive the difference and it looks like a static display. Calling
+/// [SevenSegment::tick] every 2ms should be enough.
 pub struct SevenSegment<P: OutputPin> {
-    // Segments in order from A to G plus DP
+    /// Segments in order from A to G plus DP
     segments: [P; 8],
-    // Four digits, lowest index corresponds to lowest digit
+    /// Four digits, lowest index corresponds to lowest digit
     digits: [P; 4],
-    // The number to display, if any
+    /// The number to display, if any
     number: Option<DisplayNumber>,
-    // Internal state for the display to track which digit to display on the next tick
+    /// Internal state for the display to track which digit to display on the next tick
     current_digit: u8,
 }
 
@@ -157,7 +189,8 @@ impl<P: OutputPin> SevenSegment<P> {
     }
 
     /// Set the number to show on the display. This function only stores the value to be shown. The
-    /// display needs to be updated at high frequency to show each digit.
+    /// display needs to be updated at high frequency to show each digit. The maximum number that
+    /// the display can show is `9999` and larger numbers will return an error.
     pub fn show(&mut self, number: u16) -> Result<(), SegmentError<P>> {
         if number > 9999 {
             return Err(SegmentError::NumberTooLarge(number));
@@ -166,6 +199,8 @@ impl<P: OutputPin> SevenSegment<P> {
         return Ok(());
     }
 
+    /// Show a floating number with a single digit precision after the decimal point. The maximum
+    /// number is `999.9` and larger numbers will return an error.
     pub fn show_float(&mut self, number: f32) -> Result<(), SegmentError<P>> {
         if number > 999.9 {
             return Err(SegmentError::FloatTooLarge(number));
@@ -174,7 +209,10 @@ impl<P: OutputPin> SevenSegment<P> {
         return Ok(());
     }
 
-    pub fn show_flat_with_char(
+    /// Show a floating number like [SevenSegment::show_float], but with a trailing character and
+    /// one less digit. Maximum number is `99.9`. Supported characters are available in
+    /// [DisplayChar].
+    pub fn show_float_with_char(
         &mut self,
         number: f32,
         char: DisplayChar,
@@ -500,7 +538,7 @@ mod test {
         let mut fixture = DisplayFixture::new();
         fixture
             .display
-            .show_flat_with_char(12.3, DisplayChar::C)
+            .show_float_with_char(12.3, DisplayChar::C)
             .unwrap();
 
         fixture.display.tick().unwrap();
